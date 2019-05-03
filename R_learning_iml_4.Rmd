@@ -1,0 +1,77 @@
+---
+title: "R_learning_iml_4"
+author: "Hector Hao"
+date: "2019/5/1"
+output: html_notebook
+---
+
+
+rulefit方法：树方法和回归方法的结合。
+https://github.com/marjoleinF/pre
+这是一个在解释方面的神方法，本章高能。
+
+```{r}
+library('pre')
+
+load('./bike.RData')
+rules = pre(cnt ~ ., data = bike)
+
+print(rules)
+
+# 这个方法产生的初始结果有点乱，生成这么多rules不是给人一条一条看的。
+```
+
+
+看一下预测效果
+```{r}
+
+bike_x = bike[,-which(names(bike) %in% c("cnt"))]
+predict(rules, newdata = bike_x[1:4, ])
+bike$cnt[1:4]
+```
+
+
+用plot 可以直观地看到几条路径，找到关键的几个变量以及趋势。这种方法不会错过重要变量的交互作用。
+```{r}
+plot(rules, nterms = 9, cex = .5)
+
+```
+
+求一下cv用来和其他模型做对比。
+```{r}
+cvpre(rules)
+
+```
+
+交互作用本包的实现方法效率比较低。作者建议使用另一个解释方法。先用原始函数运行了一次，果然内存不足。全部
+obj清理了一遍之后勉强跑出如下效果。
+```{r}
+# 额外需要包akima
+pairplot(rules, varnames = c("temp", "hum"))
+
+```
+
+有交互的图，信息量比较大。
+```{r}
+library('plotmo')
+plotmo(rules)
+
+```
+
+
+只要是模型就可以给出importance的方法。
+```{r}
+plotres(rules)
+
+```
+
+
+单实例解释。在rules比较多的时候比较尴尬。
+```{r}
+expl <- explain(rules, newdata = bike_x[1:2, ],
+                cex = .3,
+                bar.col = c("#E495A5", "#39BEB1"), 
+                rule.col = c("#E495A5", "#39BEB1"))
+
+```
+

@@ -1,0 +1,118 @@
+---
+title: "R_learning_iml_5"
+author: "Hector Hao"
+date: "2019/5/2"
+output: html_notebook
+---
+
+# 第二章 黑箱模型解释 Model-Agnostic Methods
+
+### PART 1. 特征层面的模型解释.
+
+## 这种模型在解释方面的优势主要是灵活性。
+
+### partial dependence plot(pdp) 
+#### 见plotmo pmethod = "partdep" 但是这个方法貌似不如iml的feature effect的ale plot(accumulated local effect).
+* pdp 的算法是全都算一遍然后求平均数。
+* plotmo的默认算法是取连续变量的中位数和离散变量的第一个特征...
+### ALE 用的是条件概率分布，主要优势是可以避免高相关变量在pdp计算时被解除绑定的问题(例如会计算80m2的5居室)
+
+```{r}
+
+library(pre)
+library(iml)
+
+# 用于相关分析
+library(Hmisc)
+library(ggcorrplot)
+
+
+load('./bike.RData')
+rules = pre(cnt ~ ., data = bike)
+# 准备好画pdp
+```
+
+下面的封装方式基本是固定的。这里可以体会一下黑箱模型画图的优劣势。
+
+前面提到了优势是灵活性，可以在不知道模型具体结构的情况下把图画出来。
+
+但是也会有相应的缺点。所有的数据点是重新输入进去然后计算了一遍的。
+
+在数据量大的时候要注意。
+
+```{r}
+
+pred = function(model, newdata){
+  predict(model, newdata)
+}
+
+predictor = Predictor$new( 
+  model = rules,
+  data = bike,
+  y = bike$cnt,
+  predict.fun = pred
+  )
+
+feaeff = FeatureEffect$new(predictor = predictor, feature = 'temp', method = "pdp+ice")
+
+plot(feaeff)
+
+```
+
+以及在上图中，还要注意数据点的分布。否则很多时候所谓的“趋势”是假的
+
+```{r}
+# plotmo 在这方面就不是很强。主要是没有给出自变量的分布范围。
+
+library("plotmo")
+plotmo(rules)
+plotmo(rules, pmethod = 'partdep')
+```
+
+### individual conditional expectation(ICE)
+* 在ICE中，每个实例有一条线。表现的是随着横轴的变量变化，每个实例的变化趋势。
+
+```{r}
+# 图见上面的feaeff.
+
+```
+
+### accumulated local effect(ale)
+* 一阶 ale 不难理解，就是加了条件分布的单变量趋势图。
+* 二阶 ale 需要注意。二阶ale只会显示二阶效果，不会显示一阶主效应。
+
+这里给出实例。
+
+```{r}
+feaeff_month = FeatureEffect$new(predictor = predictor, feature = "mnth", method = "ale")
+plot(feaeff_month)
+```
+
+
+
+```{r}
+feaeff = FeatureEffect$new(predictor = predictor, feature = c('hum','temp'), method = "ale")
+plot(feaeff)
+
+```
+
+还可以试一试ALEPlot的效果
+```{r}
+library(ALEPlot)
+
+```
+
+
+上面提到了变量的相关性，这里给了几个求相关的可视化方法。
+```{r}
+library(Hmisc)
+library(ggcorrplot)
+
+
+#create correlation matrix
+cor_ret = rcorr(as.matrix(bike[sapply(bike, is.numeric)]), type = c("pearson"))
+
+ggcorrplot(cor_ret$r, hc.order = TRUE, type = "lower",
+     outline.col = "white", p.mat = cor_ret$P, insig = "blank")
+
+```

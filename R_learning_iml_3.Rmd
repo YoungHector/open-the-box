@@ -1,0 +1,98 @@
+---
+title: "R_learning_iml_3"
+author: "Hector Hao"
+date: "2019/4/30"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+# 本章的模型解释用到的包如下
+library('iml')
+# 本章建模用到的包如下
+library('foreign')
+library('MASS')
+```
+# 第一章 自带解释性的方法: robust regression
+
+这章研究一下robust regression.本质是回归诊断。
+
+此外，本章继续尝试解释模型的封装。
+
+## 线性回归的基本术语再回顾
+* residual 残差
+
+残差指观测值和估计值的差。
+
+* outlier 离群值
+
+指残差过大的数据点。
+
+* leverage 杠杆值
+
+自变量值远离变量均值的程度。高杠杆值意味着样本对模型参数的影响大。
+
+* influence 影响
+
+如果去掉某个样本，函数参数估计的变化大小。influence是leverage & outlierness的综合结果。
+
+* Cook's distance
+
+Cook's D， residual & leverage的综合结果。
+
+* robust regression
+
+对于一些影响较大的点，给较小的权重，影响较小的点给较大的权重，而不是简单地靠删去样本。
+
+```{r}
+cdata <- read.dta("https://stats.idre.ucla.edu/stat/data/crime.dta")
+summary(cdata)
+summary(ols <- lm(crime ~ poverty + single, data = cdata))
+```
+```{r}
+opar <- par(mfrow = c(2,2), oma = c(0, 0, 1.1, 0))
+plot(ols, las = 1)
+```
+
+四张图分别有自己的含义。
+
+第一张：outlier 和 high leverage点都标在图中了。横轴是y值，纵轴是残差。
+
+第二张：违背正态性假设的数据点
+
+第三张：scaled location plot
+
+标准化残差，应该是一条横线。如果不是横线，那图中会标出关键的影响值。
+
+第四张：cook's D
+
+宽松标准是大于1则是离群值。保守标准是 4/n.
+
+求cook's distance的步骤
+
+```{r}
+dis = cooks.distance(ols)
+r = stdres(ols)
+a = cbind(cdata, dis, r)
+str(a[dis > 4/51,])
+
+```
+
+```{r}
+# then robust linear reg.
+summary(rr.huber <- rlm(crime ~ poverty + single, data = cdata))
+
+```
+
+
+```{r}
+hweights <- data.frame(state = cdata$state, resid = rr.huber$resid, weight = rr.huber$w)
+hweights2 <- hweights[order(rr.huber$w), ]
+hweights2[1:15, ]
+# 可以看到weight, 是按照残差来确定的。
+
+```

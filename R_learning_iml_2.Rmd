@@ -1,0 +1,92 @@
+---
+title: "R_learning_iml_2"
+author: "Hector Hao"
+date: "2019/4/30"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+# 本章的模型解释用到的包如下
+library('jtools')
+library('iml')
+# 本章建模用到的包如下
+library('h2o')
+h2o.init()
+```
+
+
+# 第一章 自带解释性的方法: logistic回归与其他线性模型.
+#### 对于这种有偏的数据集，用logistics回归基本搞不定，混淆矩阵特别差。最后还是选择了gbm。所以这章基本在说gbm的FeatImp和Effect(ALE).
+
+```{r}
+load('./cervical.RData')
+predictors = names(cervical[,-16])
+response = names(cervical[16])
+
+#########
+# 中间可以有各种preprocess.
+#########
+
+cancer.h2o = as.h2o(cervical)
+cancer.gbm = h2o.gbm(x = predictors, y = response, training_frame = cancer.h2o, ntrees = 80)
+
+# 注意：注意：注意！
+# 这个模型返回的结果的混淆矩阵显示它全都拟合成同一个值了。这就非常糟糕。
+
+
+```
+
+得到了一个提升树。
+```{r}
+cancer.gbm
+```
+```{r}
+cancer.gbm@model$model_summary
+
+```
+
+```{r}
+
+# 0
+input_x = as.data.frame(cancer.h2o[predictors])
+input_y = as.vector(as.numeric(as.factor(cancer.h2o[response])))
+
+# 1
+pred.h2o <- function(model, newdata)  {
+  results <- as.data.frame(h2o.predict(model, as.h2o(newdata)))
+  return(as.numeric(as.factor(results$predict)))
+}
+
+# predicting example
+# ret = pred(bike.glm, newdata = input_x[1:2,])
+pred.h2o(cancer.gbm, input_x[3,])
+# 2
+predictor.gbm = Predictor$new(
+  model = cancer.gbm,       # from -1, 前面的model
+  data = input_x,         # from 0
+  y = input_y,            # from 0
+  predict.fun = pred.h2o, # from 1
+  class = "classification"    # 2
+)
+str(predictor.glm)
+
+imp.gbm <- FeatureImp$new(
+  predictor.gbm, # from 2
+  loss = "mse"   # 3
+  )
+plot(imp.gbm)
+```
+
+```{r}
+effect = FeatureEffects$new(predictor.gbm)
+effect$plot(features = c('First.sexual.intercourse', 'Age'))
+```
+
+```{r}
+h2o.shutdown()
+```

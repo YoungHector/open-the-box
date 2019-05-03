@@ -1,0 +1,171 @@
+---
+title: "R_learning_iml_1"
+author: "Hector Hao"
+date: "2019/4/30"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+# 本章的模型解释用到的包如下
+library('jtools')
+library('iml')
+# 本章建模用到的包如下
+library('h2o')
+```
+
+
+# 第一章 自带解释性的方法: 线性回归
+
+## 线性回归：最简单，最实用，限制也最多
+* 线性
+* 独立
+* 不多重共线
+* 方差恒定
+* 因变量正态
+
+虽然现实场合中比较尴尬，但还是值得一试的简单方法。
+
+### 线性回归的指标
+* R-squared & adjusted R-squared
+* feat imp. === t value of each weight.
+* 心理学常识性指标，不多说了
+
+#### 实例
+```{r}
+load('./bike.RData')
+bike_x = bike[,-which(names(bike) %in% c("cnt", "mnth", "weekday"))]
+# 构建模型的时候先去除因变量，然后去除高度共线的自变量，然后再线性回归。
+# 这里是用了lm对类别变量的自动编码。其他一些模型需要手动编码，下面给出了手动编码的代码。
+
+bike_y = bike$cnt
+features = names(bike_x)
+
+lr_model = lm(bike_y~., data = bike_x)
+```
+
+变量解释：
+
+如果是连续变量：其他因素保持不变，温度每上升1度，租车量增加96台。
+
+如果是类别变量：互相比较就行了。
+
+先来看模型指标
+```{r}
+summ(lr_model)
+```
+```{r}
+# 这里是手动对catg vars 进行编码
+x_train = model.matrix( ~ .-1, bike_x[,features])
+x_train_dataframe = as.data.frame(x_train)
+lr_model_2 = lm(bike_y~., data = x_train_dataframe[,-which(names(x_train_dataframe) %in% c("seasonSPRING"))])
+summ(lr_model_2)
+# 可见和上面是一致的
+```
+
+
+```{r}
+plot_coefs(lr_model, lr_model_2)
+
+```
+再来看模型的各项的重要性
+```{r}
+plot_summs(lr_model,lr_model_2, scale=T, plot.distributions = T, coefs = c('seasonWINTER', 'workingday'))
+```
+
+
+接下来，为了控制模型的复杂度，使用一些sparse reg的方法，例如lasso.
+
+后续所有建模都基于h2o包。
+
+```{r}
+library(h2o)
+h2o.init()
+
+predictors = c("season", "holiday", "weathersit",
+               "temp", "hum", "windspeed", "days_since_2011", "workingday")
+response = "cnt"
+
+#########
+# 中间可以有各种preprocess.
+#########
+
+bike.h2o = as.h2o(bike)
+bike.glm = h2o.glm(family = "gaussian", x = predictors, y = response, training_frame = bike.h2o,
+                   lambda = 0,
+                   compute_p_values = T) # 注意写compute_p_values = T + lambda = 0 的时候，就没有alpha值了。否则alpha会有一个默认值用作正则化。
+
+```
+
+让我们看看h2o包给出的重要性排序。
+```{r}
+summary(bike.glm)
+```
+
+再看看系数(下面)，注意这里面系数本身可以很小，例如temp，但它的重要性可能很大(考虑自变量本身的range)。
+
+相当于前者是weight，后者是effect
+
+```{r}
+h2o.coef(bike.glm)
+```
+
+```{r}
+h2o.coef_norm(bike.glm)
+```
+
+继续查看变量的统计学指标
+```{r}
+bike.glm@model$coefficients_table
+
+```
+
+```{r}
+summary(bike.glm)
+```
+
+```{r}
+# 通过用predict封装，实现 iml包的调用。
+############
+# 分为以下四步：
+# 0.(可选)对于需要全数据的解释，先把x和y准备出来。
+# 1.封装一个预测函数，输入是model & dataframe, 输出是vector。
+# 2.封装一个Predictor, 写法基本固定，指定model,x,y即可。
+# 3.封装一个具体想解释的指标obj, 例如FeatureImp.
+############
+
+
+# 0
+input_x = as.data.frame(bike.h2o[predictors])
+input_y = as.vector(bike.h2o[response])
+
+# 1
+pred.h2o <- function(model, newdata)  {
+  results <- as.data.frame(h2o.predict(model, as.h2o(newdata)))
+  return(results$predict)
+}
+
+# predicting example
+# ret = pred(bike.glm, newdata = input_x[1:2,])
+
+# 2
+predictor.glm = Predictor$new(
+  model = bike.glm,       # from -1, 前面的model
+  data = input_x,         # from 0
+  y = input_y,            # from 0
+  predict.fun = pred.h2o, # from 1
+  class = "regression"    # 2
+)
+str(predictor.glm)
+
+imp.glm <- FeatureImp$new(
+  predictor.glm, # from 2
+  loss = "mse"   # 3
+  )
+plot(imp.glm)
+# 最终如图
+```
