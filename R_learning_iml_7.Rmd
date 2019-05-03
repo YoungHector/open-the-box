@@ -1,0 +1,103 @@
+---
+title: "R_learning_iml_7"
+author: "Hector Hao"
+date: "2019/5/2"
+output: html_notebook
+---
+
+Local Surrogate (LIME)
+
+本章是著名的lime方法的实战。  
+lime 是一个非常有前途的方法，但如果想要安全地使用这个方法，要注意kernel的调整。详见后文。
+
+some useful external links:
+https://uc-r.github.io/lime
+
+```{r}
+library('lime')
+# The following object is masked from ‘package:DALEX’: explain. 要注意。
+
+library(h2o)
+h2o.init()
+```
+
+```{r}
+# 先把模型训练出来
+load('./bike.RData')
+predictors = names(bike[,-which(names(bike) %in% c("cnt"))])
+response = "cnt"
+
+local_obs = bike[c(5, 135, 235, 535), predictors]
+
+#########
+# 中间可以有各种preprocess.
+#########
+
+bike.h2o = as.h2o(bike)
+bike.gbm = h2o.gbm(x = predictors, y = response, training_frame = bike.h2o, ntrees = 80)
+```
+
+然后开始用lime  
+对于全局解释, 前面的几种方法不需要额外的参数。  
+对于局部解释的lime，需要一些参数, 详见代码。  
+
+```{r}
+explain_h2o_gbm = lime(
+  bike,
+  model = bike.gbm,
+  n_bins = 8
+)
+
+class(explain_h2o_gbm)
+```
+
+```{r}
+summary(explain_h2o_gbm)
+
+```
+
+```{r}
+explanation_h2o_gbm <- explain(
+  x = local_obs, 
+  explainer = explain_h2o_gbm, 
+  
+  n_permutations = 4000,
+  
+  dist_fun = "manhattan",
+  
+  kernel_width = 1.75, # Here is an elephant!
+  
+  n_features = 8, 
+  
+  feature_select = "lasso_path",
+  
+  labels = "Yes"
+  )
+
+```
+
+kernel的作用和影响？
+
+kernel调整到多少是合适的？
+
+
+
+```{r}
+plot_features(explanation_h2o_gbm)
+
+```
+
+```{r}
+bike[c(5, 135, 235, 535), response]
+```
+
+结果不错。图也简单易懂，最大的两个影响因素一直是temp + hum。  
+如果想归纳性地找到哪些变量影响很大，还可以使用下面的方法
+
+```{r}
+plot_explanations(explanation = explanation_h2o_gbm,)
+
+```
+
+
+

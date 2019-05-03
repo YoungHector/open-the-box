@@ -7,7 +7,7 @@ output: html_notebook
 
 # 第二章 黑箱模型解释 Model-Agnostic Methods
 
-### PART 1. 特征层面的模型解释.
+### PART 1.1. 特征层面的模型解释.
 
 ## 这种模型在解释方面的优势主要是灵活性。
 
@@ -96,11 +96,6 @@ plot(feaeff)
 
 ```
 
-还可以试一试ALEPlot的效果
-```{r}
-library(ALEPlot)
-
-```
 
 
 上面提到了变量的相关性，这里给了几个求相关的可视化方法。
@@ -116,3 +111,32 @@ ggcorrplot(cor_ret$r, hc.order = TRUE, type = "lower",
      outline.col = "white", p.mat = cor_ret$P, insig = "blank")
 
 ```
+### PART 1.2 特征层面的模型解释:交互作用
+
+The whole is greater than the sum of its parts
+
+交互作用的指标有:
+Friedman’s H-statistic: 方差解释量有多少是交互作用产生的。
+```{r}
+################
+# 注意: 以下代码均没有在较短的时间范围内成功运行。
+# 对于交互作用可能需要先找到关键的变量，然后针对具体的变量进行交互作用的检验
+#
+# 交互作用检验之后，PDP来看具体的形状。
+################
+
+# 分为两步: 
+# 第一步: 看每个变量和所有其他变量的平均交互强度
+interaction_ret = Interaction$new(predictor = predictor)
+plot(interaction_ret)
+
+# 第二步: 看单个变量和其他变量的交互强度。
+
+temp_inter_ret = Interaction$new(predictor = predictor, feature = 'temp')
+plot(temp_inter_ret)
+
+
+library('pre')
+pre::interact(rules)
+```
+
