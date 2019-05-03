@@ -1,4 +1,5 @@
 .Rproj.user
-*.Rhistory
+.Rhistory
 *.html
 *.Rproj
+R_learning_iml.Rproj
