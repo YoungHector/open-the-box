@@ -1,0 +1,48 @@
+---
+title: "DALEX_vs_IML"
+author: "Hector Hao"
+date: "2019/5/2"
+output: html_notebook
+---
+
+(待完成)
+
+本章专门学习与对比DALEX和iml包的一些异同，在不同的用法时选择不同的包。
+
+第一次使用DALEX时要先install_dependencies.
+
+```{r}
+library(DALEX)
+install_dependencies('DALEX')
+```
+
+
+```{r}
+
+library(h2o)
+h2o.init()
+
+# 先把模型训练出来
+load('./bike.RData')
+predictors = names(bike[,-which(names(bike) %in% c("cnt"))])
+response = "cnt"
+
+local_obs = bike[c(5, 135), predictors]
+
+bike.h2o = as.h2o(bike)
+bike.gbm = h2o.gbm(x = predictors, y = response, training_frame = bike.h2o, ntrees = 80)
+
+```
+
+```{r}
+
+explainer_h2o_gbm <- DALEX::explain(model = bike.gbm, 
+                                    data = bike.h2o,
+                                    y = bike$cnt,
+                                    predict_function = pred.h2o,
+                                    label = "h2o gbm")
+
+perform_ret = model_performance(explainer = explainer_h2o_gbm)
+plot(perform_ret)
+```
+```

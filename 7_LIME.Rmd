@@ -1,5 +1,5 @@
 ---
-title: "R_learning_iml_7"
+title: "LIME"
 author: "Hector Hao"
 date: "2019/5/2"
 output: html_notebook
@@ -80,7 +80,7 @@ kernel的作用和影响？
 
 kernel调整到多少是合适的？
 
-
+目前没有定量的kernel调整方法。
 
 ```{r}
 plot_features(explanation_h2o_gbm)
@@ -98,6 +98,4 @@ bike[c(5, 135, 235, 535), response]
 plot_explanations(explanation = explanation_h2o_gbm,)
 
 ```
-
-
 

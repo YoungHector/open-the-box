@@ -1,0 +1,85 @@
+---
+title: "R_learning_iml_8"
+author: "Hector Hao"
+date: "2019/5/2"
+output: html_notebook
+---
+
+Shapley value & breakdown
+
+一个通俗的解释是https://www.zhihu.com/question/23180647/answer/49724759
+
+解释单个样本的各个变量的重要性值。和平均水平相比，每个变量贡献了多少原因。
+
+```{r}
+library(iml)
+
+```
+```{r}
+
+library(h2o)
+h2o.init()
+
+# 先把模型训练出来
+load('./bike.RData')
+predictors = names(bike[,-which(names(bike) %in% c("cnt"))])
+response = "cnt"
+
+local_obs = bike[c(135), predictors]
+
+bike.h2o = as.h2o(bike)
+bike.gbm = h2o.gbm(x = predictors, y = response, training_frame = bike.h2o, ntrees = 80)
+
+```
+
+```{r}
+# S3 带predict 函数的predict wrapper.
+pred = function(model, newdata){
+  predict(model, newdata)
+}
+
+# h2o 函数的predict wrapper.
+pred.h2o <- function(model, newdata)  {
+  results <- as.data.frame(h2o.predict(model, as.h2o(newdata)))
+  return(as.numeric(results$predict))
+}
+
+predictor = Predictor$new( 
+  model = bike.gbm,
+  data = bike[predictors],
+  y = bike$cnt,
+  predict.fun = pred.h2o
+  )
+
+res = Shapley$new(predictor = predictor, x.interest = local_obs, sample.size = 2000)
+
+plot(res)
+```
+
+
+```{r}
+library(breakDown)
+```
+
+```{r}
+
+explain_breakdown_1 = breakDown::broken(
+  model = bike.gbm,
+  bike[3, -11], 
+  data = bike[,-11],
+  predict.function = pred.h2o,
+  direction = "down"
+  )
+plot(explain_breakdown_1)
+
+```
+```{r}
+explain_breakdown_2 = breakDown::broken(
+  model = bike.gbm,
+  bike[135, -11], 
+  data = bike[,-11],
+  predict.function = pred.h2o,
+  direction = "up"
+  )
+plot(explain_breakdown_2)
+```

@@ -1,8 +1,10 @@
 ---
-title: "R_learning_iml_0"
+title: "iml learning introduction"
 author: "Hector Hao"
 date: "2019/4/25"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 
 
@@ -13,7 +15,7 @@ output: html_notebook
 # 序章
 
 ```{r}
-# iml 书作者维护的包
+# iml 书作者维护的包.
 library(iml)
 
 # bike rentals. & risk factors for cervical cancer.
