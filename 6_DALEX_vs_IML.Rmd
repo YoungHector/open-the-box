@@ -5,9 +5,7 @@ date: "2019/5/2"
 output: html_notebook
 ---
 
-(待完成)
-
-本章专门学习与对比DALEX和iml包的一些异同，在不同的用法时选择不同的包。
+本章补充DALEX包的内容，可以与其他章节使用iml的情况进行对比。
 
 第一次使用DALEX时要先install_dependencies.
 
@@ -36,13 +34,56 @@ bike.gbm = h2o.gbm(x = predictors, y = response, training_frame = bike.h2o, ntre
 
 ```{r}
 
+# h2o 函数的predict wrapper.
+pred.h2o <- function(model, newdata)  {
+  results <- as.data.frame(h2o.predict(model, as.h2o(newdata)))
+  return(as.numeric(results$predict))
+}
+```
+
+这里要非常注意，explain函数要带上DALEX::, 并且data不要用h2o的data，用data.frame 格式的。
+
+
+```{r}
 explainer_h2o_gbm <- DALEX::explain(model = bike.gbm, 
-                                    data = bike.h2o,
+                                    data = bike,
                                     y = bike$cnt,
                                     predict_function = pred.h2o,
                                     label = "h2o gbm")
-
-perform_ret = model_performance(explainer = explainer_h2o_gbm)
-plot(perform_ret)
+                                    
 ```
+
+第一个方面是查看模型对所有数据的解释残差情况，作为模型选择的标准之一。
+
+```{r}
+mp_h2o_gbm <- model_performance(explainer_h2o_gbm)
+plot(mp_h2o_gbm)
+```
+
+pdp不如iml包的实现，主要是没有自带变量分布。
+```{r}
+# install.packages('pdp')
+pdp_h2o_gbm <- variable_response(explainer_h2o_gbm,
+                                 variable = "temp")
+plot(pdp_h2o_gbm)
+```
+
+```{r}
+pdp_h2o_gbm <- variable_response(explainer_h2o_gbm,
+                                 variable = "temp", type = "ale")
+plot(pdp_h2o_gbm)
+```
+
+```{r}
+# install.packages("factorMerger")
+mpp_h2o_gbm <- variable_response(explainer_h2o_gbm, variable = "season", type = "factor")
+plot(mpp_h2o_gbm)
+
+```
+
+
+```{r}
+
+pb_h2o_gbm <- prediction_breakdown(explainer_h2o_gbm, observation = bike[135, -11])
+plot(pb_h2o_gbm)
 ```
